@@ -18,9 +18,9 @@ st.set_page_config(
 # LOAD MODEL
 # ============================================
 
-model = joblib.load("riskguard_model.pkl")
-scaler = joblib.load("riskguard_scaler.pkl")
-config = joblib.load("riskguard_config.pkl")
+model = joblib.load("models/riskguard_model.pkl")
+scaler = joblib.load("models/riskguard_scaler.pkl")
+config = joblib.load("models/riskguard_config.pkl")
 
 fraud_threshold = config["fraud_threshold"]
 
