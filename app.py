@@ -222,6 +222,16 @@ def analyze_transactions(dataframe):
 st.title(
     "🛡️ RiskGuard AI"
 )
+st.caption(
+    "Deployment: RiskGuard-CLEAN-RF-2026-08-25"
+)
+
+with st.expander("🔧 Model Diagnostics"):
+    st.write("Model:", type(model).__name__)
+    st.write("Number of trees:", model.n_estimators)
+    st.write("Model features:", model.n_features_in_)
+    st.write("Amount scaler:", type(amount_scaler).__name__)
+    st.write("Time scaler:", type(time_scaler).__name__)
 
 st.subheader(
     "AI-Powered Payment Fraud & Risk Detection"
