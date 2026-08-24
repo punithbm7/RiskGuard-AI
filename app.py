@@ -1,8 +1,9 @@
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
+from pathlib import Path
+
 
 # ============================================
 # PAGE CONFIGURATION
@@ -14,18 +15,31 @@ st.set_page_config(
     layout="wide"
 )
 
+
+# ============================================
+# PATHS
+# ============================================
+
+BASE_DIR = Path(__file__).resolve().parent
+
+MODEL_PATH = BASE_DIR / "models" / "riskguard_model.pkl"
+SCALER_PATH = BASE_DIR / "models" / "riskguard_scaler.pkl"
+CONFIG_PATH = BASE_DIR / "models" / "riskguard_config.pkl"
+
+
 # ============================================
 # LOAD MODEL
 # ============================================
 
-model = joblib.load("models/riskguard_model.pkl")
-scaler = joblib.load("models/riskguard_scaler.pkl")
-config = joblib.load("models/riskguard_config.pkl")
+model = joblib.load(MODEL_PATH)
+scaler = joblib.load(SCALER_PATH)
+config = joblib.load(CONFIG_PATH)
 
 fraud_threshold = config["fraud_threshold"]
 
+
 # ============================================
-# FUNCTIONS
+# RISK FUNCTIONS
 # ============================================
 
 def get_risk_level(score):
@@ -33,11 +47,10 @@ def get_risk_level(score):
     if score < 30:
         return "LOW"
 
-    elif score < 70:
+    if score < 70:
         return "MEDIUM"
 
-    else:
-        return "HIGH"
+    return "HIGH"
 
 
 def get_recommended_action(score):
@@ -45,12 +58,15 @@ def get_recommended_action(score):
     if score < 30:
         return "APPROVE"
 
-    elif score < 70:
+    if score < 70:
         return "MANUAL REVIEW"
 
-    else:
-        return "BLOCK / VERIFY"
+    return "BLOCK / VERIFY"
 
+
+# ============================================
+# ANALYZE TRANSACTIONS
+# ============================================
 
 def analyze_transactions(dataframe):
 
@@ -61,16 +77,16 @@ def analyze_transactions(dataframe):
     ]
 
     missing_columns = [
-        col
-        for col in required_columns
-        if col not in dataframe.columns
+        column
+        for column in required_columns
+        if column not in dataframe.columns
     ]
 
     if missing_columns:
 
         raise ValueError(
-            f"Missing required columns: "
-            f"{missing_columns}"
+            "Missing required columns: "
+            + ", ".join(missing_columns)
         )
 
     model_data = dataframe[
@@ -81,12 +97,12 @@ def analyze_transactions(dataframe):
         model_data
     )
 
-    fraud_probabilities = model.predict_proba(
+    probabilities = model.predict_proba(
         scaled_data
     )[:, 1]
 
     risk_scores = (
-        fraud_probabilities * 100
+        probabilities * 100
     ).round(2)
 
     risk_levels = [
@@ -102,7 +118,7 @@ def analyze_transactions(dataframe):
     results = dataframe.copy()
 
     results["Fraud Probability"] = (
-        fraud_probabilities.round(4)
+        probabilities.round(4)
     )
 
     results["Risk Score"] = risk_scores
@@ -131,11 +147,12 @@ st.write(
 
 st.divider()
 
+
 # ============================================
 # SIDEBAR
 # ============================================
 
-st.sidebar.header("🛡️ RiskGuard AI")
+st.sidebar.title("🛡️ RiskGuard AI")
 
 st.sidebar.write(
     "Machine-learning powered payment "
@@ -149,21 +166,12 @@ st.sidebar.metric(
     f"{fraud_threshold:.2f}"
 )
 
-st.sidebar.write(
-    "Risk Score Bands"
-)
+st.sidebar.write("Risk Score Bands")
 
-st.sidebar.write(
-    "🟢 0–30 → Low Risk"
-)
+st.sidebar.write("🟢 0–30 → Low Risk")
+st.sidebar.write("🟡 30–70 → Medium Risk")
+st.sidebar.write("🔴 70–100 → High Risk")
 
-st.sidebar.write(
-    "🟡 30–70 → Medium Risk"
-)
-
-st.sidebar.write(
-    "🔴 70–100 → High Risk"
-)
 
 # ============================================
 # FILE UPLOAD
@@ -176,51 +184,64 @@ uploaded_file = st.file_uploader(
     type=["csv"]
 )
 
+
 # ============================================
-# PROCESS FILE
+# NO FILE
+# ============================================
+
+if uploaded_file is None:
+
+    st.info(
+        "👆 Upload a transaction CSV file "
+        "to begin risk analysis."
+    )
+
+    st.write("Required CSV columns:")
+
+    st.code(
+        "Time, V1, V2, ..., V28, Amount"
+    )
+
+
+# ============================================
+# FILE UPLOADED
 # ============================================
 
 if uploaded_file is not None:
 
     try:
 
-        df = pd.read_csv(
+        dataframe = pd.read_csv(
             uploaded_file
         )
 
         st.success(
             f"Uploaded successfully — "
-            f"{len(df):,} transactions found."
+            f"{len(dataframe):,} transactions found."
         )
-
-        # -----------------------------
-        # Preview
-        # -----------------------------
 
         st.subheader(
             "Transaction Preview"
         )
 
         st.dataframe(
-            df.head(10),
+            dataframe.head(10),
             use_container_width=True
         )
 
-        # -----------------------------
-        # Analyze
-        # -----------------------------
-
-        if st.button(
+        analyze_button = st.button(
             "🔍 ANALYZE TRANSACTIONS",
             use_container_width=True
-        ):
+        )
+
+        if analyze_button:
 
             with st.spinner(
                 "Analyzing transactions..."
             ):
 
                 results = analyze_transactions(
-                    df
+                    dataframe
                 )
 
             st.success(
@@ -230,12 +251,12 @@ if uploaded_file is not None:
             st.divider()
 
             # =================================
-            # RISK SUMMARY
+            # SUMMARY
             # =================================
 
-            st.header(
-                "📊 Risk Summary"
-            )
+            st.header("📊 Risk Summary")
+
+            total_count = len(results)
 
             low_count = (
                 results["Risk Level"]
@@ -261,7 +282,7 @@ if uploaded_file is not None:
 
                 st.metric(
                     "Total Transactions",
-                    f"{len(results):,}"
+                    f"{total_count:,}"
                 )
 
             with col2:
@@ -286,15 +307,14 @@ if uploaded_file is not None:
                 )
 
             # =================================
-            # HIGH RISK ALERT
+            # ALERT
             # =================================
 
             if high_count > 0:
 
                 st.error(
                     f"🚨 {high_count:,} "
-                    "high-risk transaction(s) "
-                    "detected."
+                    "high-risk transaction(s) detected."
                 )
 
             else:
@@ -321,20 +341,14 @@ if uploaded_file is not None:
                 "Recommended Action"
             ]
 
-            available_columns = [
-                col
-                for col in display_columns
-                if col in results.columns
-            ]
-
             st.dataframe(
-                results[available_columns],
+                results[display_columns],
                 use_container_width=True,
                 hide_index=True
             )
 
             # =================================
-            # HIGH-RISK TRANSACTIONS
+            # HIGH RISK
             # =================================
 
             st.divider()
@@ -350,7 +364,7 @@ if uploaded_file is not None:
             if len(high_risk) > 0:
 
                 st.dataframe(
-                    high_risk[available_columns],
+                    high_risk[display_columns],
                     use_container_width=True,
                     hide_index=True
                 )
@@ -362,38 +376,31 @@ if uploaded_file is not None:
                 )
 
             # =================================
-            # DOWNLOAD RESULTS
+            # DOWNLOAD
             # =================================
 
             st.divider()
 
-            csv_output = results.to_csv(
+            report = results.to_csv(
                 index=False
             ).encode("utf-8")
 
             st.download_button(
                 label="📥 Download Risk Report",
-                data=csv_output,
+                data=report,
                 file_name="riskguard_analysis.csv",
                 mime="text/csv",
                 use_container_width=True
             )
 
-# ============================================
-# NO FILE
-# ============================================
+    except Exception as error:
 
-else:
+        st.error(
+            "❌ Unable to analyze the uploaded file."
+        )
 
-    st.info(
-        "👆 Upload a transaction CSV file "
-        "to begin risk analysis."
-    )
+        st.exception(error)
 
-    st.write(
-        "The uploaded CSV must contain the "
-        "30 features used by the trained model."
-    )
 
 # ============================================
 # FOOTER
