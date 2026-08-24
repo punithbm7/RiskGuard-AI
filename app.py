@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 # ============================================
-# PAGE CONFIGURATION
+# PAGE CONFIG
 # ============================================
 
 st.set_page_config(
@@ -22,20 +22,58 @@ st.set_page_config(
 
 BASE_DIR = Path(__file__).resolve().parent
 
-MODEL_PATH = BASE_DIR / "models" / "riskguard_model.pkl"
-SCALER_PATH = BASE_DIR / "models" / "riskguard_scaler.pkl"
-CONFIG_PATH = BASE_DIR / "models" / "riskguard_config.pkl"
+MODEL_PATH = (
+    BASE_DIR /
+    "models" /
+    "riskguard_model.pkl"
+)
+
+AMOUNT_SCALER_PATH = (
+    BASE_DIR /
+    "models" /
+    "riskguard_amount_scaler.pkl"
+)
+
+TIME_SCALER_PATH = (
+    BASE_DIR /
+    "models" /
+    "riskguard_time_scaler.pkl"
+)
+
+CONFIG_PATH = (
+    BASE_DIR /
+    "models" /
+    "riskguard_config.pkl"
+)
 
 
 # ============================================
-# LOAD MODEL
+# LOAD ML PIPELINE
 # ============================================
 
-model = joblib.load(MODEL_PATH)
-scaler = joblib.load(SCALER_PATH)
-config = joblib.load(CONFIG_PATH)
+model = joblib.load(
+    MODEL_PATH
+)
 
-fraud_threshold = config["fraud_threshold"]
+amount_scaler = joblib.load(
+    AMOUNT_SCALER_PATH
+)
+
+time_scaler = joblib.load(
+    TIME_SCALER_PATH
+)
+
+config = joblib.load(
+    CONFIG_PATH
+)
+
+feature_columns = config[
+    "feature_columns"
+]
+
+fraud_threshold = config[
+    "fraud_threshold"
+]
 
 
 # ============================================
@@ -47,25 +85,26 @@ def get_risk_level(score):
     if score < 30:
         return "LOW"
 
-    if score < 70:
+    elif score < 70:
         return "MEDIUM"
 
-    return "HIGH"
+    else:
+        return "HIGH"
 
 
-def get_recommended_action(score):
+def get_action(level):
 
-    if score < 30:
+    if level == "LOW":
         return "APPROVE"
 
-    if score < 70:
+    elif level == "MEDIUM":
         return "MANUAL REVIEW"
 
     return "BLOCK / VERIFY"
 
 
 # ============================================
-# ANALYZE TRANSACTIONS
+# PREDICTION FUNCTION
 # ============================================
 
 def analyze_transactions(dataframe):
@@ -89,17 +128,49 @@ def analyze_transactions(dataframe):
             + ", ".join(missing_columns)
         )
 
-    model_data = dataframe[
+    model_input = dataframe[
         required_columns
     ].copy()
 
-    scaled_data = scaler.transform(
-        model_data
-    )
+    # ----------------------------------------
+    # Exact training preprocessing
+    # ----------------------------------------
+
+    model_input[
+        "scaled_amount"
+    ] = amount_scaler.transform(
+        model_input[
+            "Amount"
+        ].values.reshape(-1, 1)
+    ).flatten()
+
+    model_input[
+        "scaled_time"
+    ] = time_scaler.transform(
+        model_input[
+            "Time"
+        ].values.reshape(-1, 1)
+    ).flatten()
+
+    # ----------------------------------------
+    # Exact feature order
+    # ----------------------------------------
+
+    X_input = model_input[
+        feature_columns
+    ]
+
+    # ----------------------------------------
+    # Fraud probability
+    # ----------------------------------------
 
     probabilities = model.predict_proba(
-        scaled_data
+        X_input
     )[:, 1]
+
+    # ----------------------------------------
+    # Risk score
+    # ----------------------------------------
 
     risk_scores = (
         probabilities * 100
@@ -111,21 +182,31 @@ def analyze_transactions(dataframe):
     ]
 
     actions = [
-        get_recommended_action(score)
-        for score in risk_scores
+        get_action(level)
+        for level in risk_levels
     ]
+
+    # ----------------------------------------
+    # Results
+    # ----------------------------------------
 
     results = dataframe.copy()
 
-    results["Fraud Probability"] = (
-        probabilities.round(4)
-    )
+    results[
+        "Fraud Probability"
+    ] = probabilities.round(4)
 
-    results["Risk Score"] = risk_scores
+    results[
+        "Risk Score"
+    ] = risk_scores
 
-    results["Risk Level"] = risk_levels
+    results[
+        "Risk Level"
+    ] = risk_levels
 
-    results["Recommended Action"] = actions
+    results[
+        "Recommended Action"
+    ] = actions
 
     return results
 
@@ -134,15 +215,18 @@ def analyze_transactions(dataframe):
 # HEADER
 # ============================================
 
-st.title("🛡️ RiskGuard AI")
+st.title(
+    "🛡️ RiskGuard AI"
+)
 
 st.subheader(
     "AI-Powered Payment Fraud & Risk Detection"
 )
 
 st.write(
-    "Upload payment transactions and let "
-    "RiskGuard identify potentially risky activity."
+    "Upload payment transactions and "
+    "RiskGuard will assess fraud probability "
+    "and transaction risk."
 )
 
 st.divider()
@@ -152,11 +236,13 @@ st.divider()
 # SIDEBAR
 # ============================================
 
-st.sidebar.title("🛡️ RiskGuard AI")
+st.sidebar.title(
+    "🛡️ RiskGuard AI"
+)
 
 st.sidebar.write(
-    "Machine-learning powered payment "
-    "risk assessment."
+    "Machine-learning powered "
+    "payment risk assessment."
 )
 
 st.sidebar.divider()
@@ -166,18 +252,30 @@ st.sidebar.metric(
     f"{fraud_threshold:.2f}"
 )
 
-st.sidebar.write("Risk Score Bands")
+st.sidebar.write(
+    "Risk Score Bands"
+)
 
-st.sidebar.write("🟢 0–30 → Low Risk")
-st.sidebar.write("🟡 30–70 → Medium Risk")
-st.sidebar.write("🔴 70–100 → High Risk")
+st.sidebar.write(
+    "🟢 0–30 → Low Risk"
+)
+
+st.sidebar.write(
+    "🟡 30–70 → Medium Risk"
+)
+
+st.sidebar.write(
+    "🔴 70–100 → High Risk"
+)
 
 
 # ============================================
-# FILE UPLOAD
+# UPLOAD
 # ============================================
 
-st.header("📁 Upload Transactions")
+st.header(
+    "📁 Upload Transactions"
+)
 
 uploaded_file = st.file_uploader(
     "Upload a CSV file",
@@ -196,7 +294,9 @@ if uploaded_file is None:
         "to begin risk analysis."
     )
 
-    st.write("Required CSV columns:")
+    st.write(
+        "Required columns:"
+    )
 
     st.code(
         "Time, V1, V2, ..., V28, Amount"
@@ -240,43 +340,49 @@ if uploaded_file is not None:
                 "Analyzing transactions..."
             ):
 
-                results = analyze_transactions(
-                    dataframe
+                results = (
+                    analyze_transactions(
+                        dataframe
+                    )
                 )
 
             st.success(
                 "✅ Analysis completed!"
             )
 
-            st.divider()
-
             # =================================
             # SUMMARY
             # =================================
 
-            st.header("📊 Risk Summary")
+            st.divider()
+
+            st.header(
+                "📊 Risk Summary"
+            )
 
             total_count = len(results)
 
             low_count = (
-                results["Risk Level"]
-                .eq("LOW")
-                .sum()
-            )
+                results[
+                    "Risk Level"
+                ] == "LOW"
+            ).sum()
 
             medium_count = (
-                results["Risk Level"]
-                .eq("MEDIUM")
-                .sum()
-            )
+                results[
+                    "Risk Level"
+                ] == "MEDIUM"
+            ).sum()
 
             high_count = (
-                results["Risk Level"]
-                .eq("HIGH")
-                .sum()
-            )
+                results[
+                    "Risk Level"
+                ] == "HIGH"
+            ).sum()
 
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4 = (
+                st.columns(4)
+            )
 
             with col1:
 
@@ -342,7 +448,9 @@ if uploaded_file is not None:
             ]
 
             st.dataframe(
-                results[display_columns],
+                results[
+                    display_columns
+                ],
                 use_container_width=True,
                 hide_index=True
             )
@@ -358,13 +466,17 @@ if uploaded_file is not None:
             )
 
             high_risk = results[
-                results["Risk Level"] == "HIGH"
+                results[
+                    "Risk Level"
+                ] == "HIGH"
             ]
 
             if len(high_risk) > 0:
 
                 st.dataframe(
-                    high_risk[display_columns],
+                    high_risk[
+                        display_columns
+                    ],
                     use_container_width=True,
                     hide_index=True
                 )
@@ -383,7 +495,9 @@ if uploaded_file is not None:
 
             report = results.to_csv(
                 index=False
-            ).encode("utf-8")
+            ).encode(
+                "utf-8"
+            )
 
             st.download_button(
                 label="📥 Download Risk Report",
