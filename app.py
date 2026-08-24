@@ -3,7 +3,11 @@ import streamlit as st
 import pandas as pd
 import joblib
 from pathlib import Path
+# ============================================
+# DEPLOYMENT VERSION
+# ============================================
 
+DEPLOYMENT_VERSION = "RiskGuard-CLEAN-RF-2026-08-25"
 
 # ============================================
 # PAGE CONFIG
