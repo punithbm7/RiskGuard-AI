@@ -172,6 +172,21 @@ def analyze_transactions(dataframe):
         X_input
     )[:, 1]
 
+    # ========================================
+# DEBUG PREDICTIONS
+# ========================================
+    
+    st.write("DEBUG - First 10 fraud probabilities:")
+    st.write(probabilities[:10])
+    
+    st.write("DEBUG - First 10 risk scores:")
+    st.write((probabilities[:10] * 100).round(2))
+    
+    st.write("DEBUG - Input shape:")
+    st.write(X_input.shape)
+    
+    st.write("DEBUG - First transaction model input:")
+    st.write(X_input.iloc[0].to_dict())
     # ----------------------------------------
     # Risk score
     # ----------------------------------------
