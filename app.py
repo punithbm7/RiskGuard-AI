@@ -3,6 +3,8 @@ import streamlit as st
 import pandas as pd
 import joblib
 from pathlib import Path
+import sklearn
+import numpy
 # ============================================
 # DEPLOYMENT VERSION
 # ============================================
@@ -286,6 +288,11 @@ with st.expander("🔧 Model Diagnostics"):
     st.write("Model features:", model.n_features_in_)
     st.write("Amount scaler:", type(amount_scaler).__name__)
     st.write("Time scaler:", type(time_scaler).__name__)
+
+    st.write("scikit-learn:", sklearn.__version__)
+    st.write("NumPy:", numpy.__version__)
+    st.write("Joblib:", joblib.__version__)
+    st.write("Pandas:", pd.__version__)
 
 with st.expander("🔐 File Fingerprints"):
 
