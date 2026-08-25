@@ -79,6 +79,36 @@ fraud_threshold = config[
     "fraud_threshold"
 ]
 
+# ============================================
+# FILE FINGERPRINT DIAGNOSTICS
+# ============================================
+
+import hashlib
+
+def file_hash(path):
+
+    with open(path, "rb") as f:
+        return hashlib.sha256(
+            f.read()
+        ).hexdigest()
+
+
+MODEL_HASH = file_hash(
+    MODEL_PATH
+)
+
+AMOUNT_SCALER_HASH = file_hash(
+    AMOUNT_SCALER_PATH
+)
+
+TIME_SCALER_HASH = file_hash(
+    TIME_SCALER_PATH
+)
+
+CONFIG_HASH = file_hash(
+    CONFIG_PATH
+)
+
 
 # ============================================
 # RISK FUNCTIONS
@@ -247,6 +277,28 @@ with st.expander("🔧 Model Diagnostics"):
     st.write("Model features:", model.n_features_in_)
     st.write("Amount scaler:", type(amount_scaler).__name__)
     st.write("Time scaler:", type(time_scaler).__name__)
+
+with st.expander("🔐 File Fingerprints"):
+
+    st.write(
+        "Model SHA256:",
+        MODEL_HASH
+    )
+
+    st.write(
+        "Amount scaler SHA256:",
+        AMOUNT_SCALER_HASH
+    )
+
+    st.write(
+        "Time scaler SHA256:",
+        TIME_SCALER_HASH
+    )
+
+    st.write(
+        "Config SHA256:",
+        CONFIG_HASH
+    )
 
 st.subheader(
     "AI-Powered Payment Fraud & Risk Detection"
