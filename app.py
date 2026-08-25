@@ -166,6 +166,15 @@ def analyze_transactions(dataframe):
         required_columns
     ].copy()
 
+    st.write("DEBUG - Raw first transaction:")
+st.write(dataframe.iloc[0].to_dict())
+
+st.write("DEBUG - Raw first 10 Amount values:")
+st.write(dataframe["Amount"].head(10).tolist())
+
+st.write("DEBUG - Raw first 10 Time values:")
+st.write(dataframe["Time"].head(10).tolist())
+
     # ----------------------------------------
     # Exact training preprocessing
     # ----------------------------------------
